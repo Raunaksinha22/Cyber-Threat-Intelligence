@@ -1,13 +1,75 @@
-import { TrendingUp, Radio, AlertTriangle, Target } from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingUp, Radio, AlertTriangle, Target, Loader2 } from "lucide-react";
 import KPICard from "@/components/KPICard";
 import { Card } from "@/components/ui/card";
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from "recharts";
-import { analyticsStats, threatsPerDay, threatTypeDistribution, activeSources, severityTrends } from "@/data/mockData";
+import { analyticsAPI } from "@/lib/api";
 
 export default function Analytics() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [analyticsStats, setAnalyticsStats] = useState<any>(null);
+  const [threatsPerDay, setThreatsPerDay] = useState<any[]>([]);
+  const [threatTypeDistribution, setThreatTypeDistribution] = useState<any[]>([]);
+  const [activeSources, setActiveSources] = useState<any[]>([]);
+  const [severityTrends, setSeverityTrends] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [statsRes, threatsRes, distributionRes, sourcesRes, trendsRes] = await Promise.all([
+          analyticsAPI.getStats(),
+          analyticsAPI.getThreatsPerDay(),
+          analyticsAPI.getThreatTypeDistribution(),
+          analyticsAPI.getActiveSources(),
+          analyticsAPI.getSeverityTrends()
+        ]);
+
+        setAnalyticsStats(statsRes.data);
+        setThreatsPerDay(threatsRes.data);
+        setThreatTypeDistribution(distributionRes.data);
+        setActiveSources(sourcesRes.data);
+        setSeverityTrends(trendsRes.data);
+      } catch (err) {
+        setError("Failed to load analytics data. Please try again later.");
+        console.error("Analytics fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalyticsData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-6 max-w-md">
+          <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2 text-center">Error Loading Data</h2>
+          <p className="text-muted-foreground text-center">{error}</p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -20,29 +82,29 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Avg Daily Threats"
-          value={analyticsStats.avgDailyThreats.value}
-          subtitle={analyticsStats.avgDailyThreats.change}
+          value={analyticsStats?.avgDailyThreats?.value || "0"}
+          subtitle={analyticsStats?.avgDailyThreats?.change || ""}
           icon={TrendingUp}
           iconColor="text-blue-500"
         />
         <KPICard
           title="Active Sources"
-          value={analyticsStats.activeSources.value}
-          subtitle={analyticsStats.activeSources.change}
+          value={analyticsStats?.activeSources?.value || "0"}
+          subtitle={analyticsStats?.activeSources?.change || ""}
           icon={Radio}
           iconColor="text-green-500"
         />
         <KPICard
           title="Critical Alerts"
-          value={analyticsStats.criticalAlerts.value}
-          subtitle={analyticsStats.criticalAlerts.change}
+          value={analyticsStats?.criticalAlerts?.value || "0"}
+          subtitle={analyticsStats?.criticalAlerts?.change || ""}
           icon={AlertTriangle}
           iconColor="text-red-500"
         />
         <KPICard
           title="Detection Rate"
-          value={analyticsStats.detectionRate.value}
-          subtitle={analyticsStats.detectionRate.change}
+          value={analyticsStats?.detectionRate?.value || "0"}
+          subtitle={analyticsStats?.detectionRate?.change || ""}
           icon={Target}
           iconColor="text-purple-500"
         />

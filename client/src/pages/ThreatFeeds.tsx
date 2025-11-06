@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,28 +11,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { iocDatabase } from "@/data/mockData";
+import { threatFeedsAPI } from "@/lib/api";
 
 export default function ThreatFeeds() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 7;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [feedsData, setFeedsData] = useState<any>({ data: [], totalItems: 0, totalPages: 0 });
 
-  const filteredData = iocDatabase.filter((item) => {
-    const matchesSearch = item.value.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.source.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === "all" || item.type === typeFilter;
-    const matchesSeverity = severityFilter === "all" || item.severity === severityFilter;
-    return matchesSearch && matchesType && matchesSeverity;
-  });
+  useEffect(() => {
+    const fetchFeeds = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+        const response = await threatFeedsAPI.getFeeds({
+          search: searchQuery,
+          type: typeFilter,
+          severity: severityFilter,
+          page: currentPage
+        });
+
+        setFeedsData(response.data);
+      } catch (err) {
+        setError("Failed to load threat feeds. Please try again later.");
+        console.error("Threat feeds fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeeds();
+  }, [searchQuery, typeFilter, severityFilter, currentPage]);
+
+  const paginatedData = feedsData.data;
+  const totalPages = feedsData.totalPages || 1;
 
   const getSeverityColor = (severity: string) => {
     const colors: Record<string, string> = {
@@ -55,6 +71,18 @@ export default function ThreatFeeds() {
     };
     return colors[threat] || "bg-secondary text-secondary-foreground";
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-6 max-w-md">
+          <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2 text-center">Error Loading Data</h2>
+          <p className="text-muted-foreground text-center">{error}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -114,19 +142,24 @@ export default function ThreatFeeds() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-border">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Date</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">IOC Type</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">IOC Value</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Source</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Threat Type</th>
-                <th className="text-left px-4 py-3 text-sm font-semibold">Severity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedData.map((item, idx) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="border-b border-border">
+                <tr>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Date</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">IOC Type</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">IOC Value</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Source</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Threat Type</th>
+                  <th className="text-left px-4 py-3 text-sm font-semibold">Severity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map((item: any, idx: number) => (
                 <tr key={item.id} className="border-b border-border hover-elevate" data-testid={`table-row-${idx}`}>
                   <td className="px-4 py-3 text-sm">{item.date}</td>
                   <td className="px-4 py-3 text-sm font-medium">{item.type}</td>
@@ -143,21 +176,22 @@ export default function ThreatFeeds() {
                     </Badge>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-muted-foreground">
-            Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} IOCs
+            Showing {feedsData.totalItems === 0 ? 0 : ((currentPage - 1) * 7) + 1}-{Math.min(currentPage * 7, feedsData.totalItems)} of {feedsData.totalItems} IOCs
           </p>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || loading}
               data-testid="button-pagination-previous"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -170,7 +204,7 @@ export default function ThreatFeeds() {
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || loading}
               data-testid="button-pagination-next"
             >
               Next

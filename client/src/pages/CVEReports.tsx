@@ -1,22 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ExternalLink, Clock } from "lucide-react";
-import { cveReports } from "@/data/mockData";
+import { Search, ExternalLink, Clock, Loader2, AlertTriangle } from "lucide-react";
+import { cveReportsAPI } from "@/lib/api";
 
 export default function CVEReports() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cveReports, setCveReports] = useState<any[]>([]);
 
-  const filteredReports = cveReports.filter((cve) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      cve.id.toLowerCase().includes(searchLower) ||
-      cve.title.toLowerCase().includes(searchLower) ||
-      cve.description.toLowerCase().includes(searchLower)
-    );
-  });
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await cveReportsAPI.getReports(searchQuery);
+        setCveReports(response.data);
+      } catch (err) {
+        setError("Failed to load CVE reports. Please try again later.");
+        console.error("CVE reports fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, [searchQuery]);
+
+  const filteredReports = cveReports;
 
   const getCVSSColor = (score: number) => {
     if (score >= 9.0) return "bg-destructive text-destructive-foreground";
@@ -31,6 +46,18 @@ export default function CVEReports() {
     if (score >= 4.0) return "MEDIUM";
     return "LOW";
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-6 max-w-md">
+          <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2 text-center">Error Loading Data</h2>
+          <p className="text-muted-foreground text-center">{error}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -64,8 +91,13 @@ export default function CVEReports() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredReports.map((cve) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredReports.map((cve) => (
             <Card key={cve.id} className="p-6 hover-elevate" data-testid={`card-cve-${cve.id}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -95,8 +127,9 @@ export default function CVEReports() {
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -1,0 +1,44 @@
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "/api",
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
+
+// Dashboard API
+export const dashboardAPI = {
+  getStats: () => api.get("/dashboard/stats"),
+  getRecentThreats: () => api.get("/dashboard/recent-threats"),
+  getThreatTrends: () => api.get("/dashboard/threat-trends")
+};
+
+// Threat Feeds API
+export const threatFeedsAPI = {
+  getFeeds: (params: { search?: string; type?: string; severity?: string; page?: number }) => 
+    api.get("/threat-feeds", { params })
+};
+
+// CVE Reports API
+export const cveReportsAPI = {
+  getReports: (search?: string) => 
+    api.get("/cve-reports", { params: { search } })
+};
+
+// Analytics API
+export const analyticsAPI = {
+  getStats: () => api.get("/analytics/stats"),
+  getThreatsPerDay: () => api.get("/analytics/threats-per-day"),
+  getThreatTypeDistribution: () => api.get("/analytics/threat-type-distribution"),
+  getActiveSources: () => api.get("/analytics/active-sources"),
+  getSeverityTrends: () => api.get("/analytics/severity-trends")
+};
+
+// Settings API
+export const settingsAPI = {
+  getGeneral: () => api.get("/settings/general"),
+  getSources: () => api.get("/settings/sources")
+};
+
+export default api;

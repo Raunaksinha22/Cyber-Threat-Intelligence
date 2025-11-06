@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Loader2, AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,15 +13,81 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { settingsData } from "@/data/mockData";
+import { settingsAPI } from "@/lib/api";
 
 export default function Settings() {
-  const [settings, setSettings] = useState(settingsData);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<any>({
+    general: {},
+    notifications: {},
+    security: {},
+    sources: []
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [generalRes, sourcesRes] = await Promise.all([
+          settingsAPI.getGeneral(),
+          settingsAPI.getSources()
+        ]);
+
+        setSettings({
+          general: generalRes.data,
+          notifications: {
+            criticalThreats: true,
+            cveAlerts: true,
+            feedUpdates: false,
+            notificationEmail: "admin@company.com"
+          },
+          security: {
+            sessionTimeout: "8 hours",
+            twoFactorAuth: true
+          },
+          sources: sourcesRes.data
+        });
+      } catch (err) {
+        setError("Failed to load settings. Please try again later.");
+        console.error("Settings fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   const handleSave = () => {
     console.log("Settings saved:", settings);
     alert("Settings saved successfully!");
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-6 max-w-md">
+          <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2 text-center">Error Loading Data</h2>
+          <p className="text-muted-foreground text-center">{error}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
