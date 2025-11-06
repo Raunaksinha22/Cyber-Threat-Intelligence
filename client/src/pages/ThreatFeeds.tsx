@@ -23,6 +23,11 @@ export default function ThreatFeeds() {
   const [feedsData, setFeedsData] = useState<any>({ data: [], totalItems: 0, totalPages: 0 });
 
   useEffect(() => {
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+  }, [searchQuery, typeFilter, severityFilter]);
+
+  useEffect(() => {
     const fetchFeeds = async () => {
       try {
         setLoading(true);

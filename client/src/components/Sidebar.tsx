@@ -41,18 +41,18 @@ export default function Sidebar() {
             const isActive = location === item.path;
             
             return (
-              <Link key={item.path} href={item.path}>
-                <a
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground hover-elevate"
-                  }`}
-                  data-testid={`link-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {item.label}
-                </a>
+              <Link 
+                key={item.path} 
+                href={item.path}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground hover-elevate"
+                }`}
+                data-testid={`link-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <Icon className="w-5 h-5" />
+                {item.label}
               </Link>
             );
           })}
