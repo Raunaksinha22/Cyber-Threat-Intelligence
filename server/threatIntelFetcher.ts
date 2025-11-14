@@ -200,7 +200,7 @@ export class ThreatIntelligenceFetcher {
         malicious_count: attributes.last_analysis_stats?.malicious || 0
       };
 
-      return { success: true, data: result };
+      return { success: true, data: [result], count: 1 };
     } catch (error: any) {
       console.error('VirusTotal IP fetch error:', error.message);
       return { success: false, error: error.message };
@@ -224,7 +224,7 @@ export class ThreatIntelligenceFetcher {
         categories: attributes.categories || {}
       };
 
-      return { success: true, data: result };
+      return { success: true, data: [result], count: 1 };
     } catch (error: any) {
       console.error('VirusTotal Domain fetch error:', error.message);
       return { success: false, error: error.message };
