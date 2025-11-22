@@ -14,6 +14,7 @@ interface CachedData {
   cveReports: any[];
   dashboardStats: any;
   recentThreats: any[];
+  sourceStatus: Record<string, { success: boolean; count: number; error?: string; lastFetch?: string }>;
 }
 
 const cachedData: CachedData = {
@@ -21,8 +22,14 @@ const cachedData: CachedData = {
   data: null,
   threatFeeds: [],
   cveReports: [],
-  dashboardStats: mockData.dashboardStats,
-  recentThreats: mockData.recentThreats
+  dashboardStats: {
+    totalIOCs: { value: 0, change: "Initializing..." },
+    newFeeds: { value: 0, change: "Starting up" },
+    criticalCVEs: { value: 0, change: "Loading..." },
+    phishingDomains: { value: 0, change: "Fetching..." }
+  },
+  recentThreats: [],
+  sourceStatus: {}
 };
 
 // Background fetcher function
@@ -60,8 +67,21 @@ function processThreatData(data: any) {
   let totalIOCs = 0;
   let criticalCVEs = 0;
   const recentThreats: any[] = [];
+  const sourceStatus: Record<string, { success: boolean; count: number; error?: string; lastFetch: string }> = {};
+  const timestamp = new Date().toISOString();
   
-  // Process each source
+  // Track status for all sources
+  for (const [sourceName, sourceData] of Object.entries(data.sources)) {
+    const sd = sourceData as any;
+    sourceStatus[sourceName] = {
+      success: sd.success,
+      count: sd.count || 0,
+      error: sd.error,
+      lastFetch: timestamp
+    };
+  }
+  
+  // Process each successful source
   for (const [sourceName, sourceData] of Object.entries(data.sources)) {
     const sd = sourceData as any;
     if (!sd.success || !sd.data) continue;
@@ -195,15 +215,33 @@ function processThreatData(data: any) {
     }
   }
   
-  // Update cached data
+  // Calculate active and failed sources
+  const activeSources = Object.values(sourceStatus).filter(s => s.success).length;
+  const totalSources = Object.keys(sourceStatus).length;
+  const failedSources = Object.values(sourceStatus).filter(s => !s.success);
+  
+  // Update cached data with ONLY real-time data
   cachedData.threatFeeds = threatFeeds;
   cachedData.cveReports = cveReports;
   cachedData.recentThreats = recentThreats.length > 0 ? recentThreats : mockData.recentThreats;
+  cachedData.sourceStatus = sourceStatus;
   cachedData.dashboardStats = {
-    totalIOCs: { value: totalIOCs, change: `Updated ${new Date().toLocaleTimeString()}` },
-    newFeeds: { value: Object.keys(data.sources).filter((k: string) => (data.sources as any)[k].success).length, change: "Active sources" },
-    criticalCVEs: { value: criticalCVEs, change: "Last 7 days" },
-    phishingDomains: { value: threatFeeds.filter(t => t.threatType?.toLowerCase().includes('phish')).length, change: "Detected" }
+    totalIOCs: { 
+      value: totalIOCs, 
+      change: totalIOCs > 0 ? `Updated ${new Date().toLocaleTimeString()}` : "No IOC data yet" 
+    },
+    newFeeds: { 
+      value: activeSources, 
+      change: failedSources.length > 0 ? `${failedSources.length} source(s) offline` : `${totalSources} sources active`
+    },
+    criticalCVEs: { 
+      value: criticalCVEs, 
+      change: criticalCVEs > 0 ? "From real-time feeds" : "No CVE data yet" 
+    },
+    phishingDomains: { 
+      value: threatFeeds.filter(t => t.threatType?.toLowerCase().includes('phish')).length, 
+      change: "Real-time detection" 
+    }
   };
 }
 
@@ -223,6 +261,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/threat-trends", (req, res) => {
     res.json(mockData.threatTrends);
+  });
+
+  // Source status endpoint - shows which feeds are working/failing
+  app.get("/api/dashboard/source-status", (req, res) => {
+    res.json({
+      sources: cachedData.sourceStatus,
+      lastUpdated: cachedData.lastUpdated,
+      summary: {
+        total: Object.keys(cachedData.sourceStatus).length,
+        active: Object.values(cachedData.sourceStatus).filter(s => s.success).length,
+        failed: Object.values(cachedData.sourceStatus).filter(s => !s.success).length
+      }
+    });
   });
 
   // Threat Feeds endpoint with filtering and pagination
