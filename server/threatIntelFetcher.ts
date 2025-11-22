@@ -10,6 +10,7 @@ interface ThreatData {
 export class ThreatIntelligenceFetcher {
   private otxApiKey: string;
   private virusTotalApiKey: string;
+  private abuseChAuthKey: string;
   private otxBaseUrl = 'https://otx.alienvault.com/api/v1';
   private virusTotalBaseUrl = 'https://www.virustotal.com/api/v3';
   private abuseChUrls = {
@@ -23,12 +24,18 @@ export class ThreatIntelligenceFetcher {
   constructor() {
     this.otxApiKey = process.env.OTX_API_KEY || '';
     this.virusTotalApiKey = process.env.VIRUSTOTAL_API_KEY || '';
+    this.abuseChAuthKey = process.env.ABUSECH_AUTH_KEY || '';
   }
 
   async fetchOtxPulses(limit: number = 10): Promise<ThreatData> {
     try {
-      const response = await axios.get(`${this.otxBaseUrl}/pulses/subscribed`, {
-        headers: { 'X-OTX-API-KEY': this.otxApiKey },
+      const headers: any = {};
+      if (this.otxApiKey) {
+        headers['X-OTX-API-KEY'] = this.otxApiKey;
+      }
+      
+      const response = await axios.get(`${this.otxBaseUrl}/pulses/activity`, {
+        headers,
         params: { limit, page: 1 },
         timeout: 30000
       });
@@ -57,11 +64,16 @@ export class ThreatIntelligenceFetcher {
 
   async fetchAbuseChMalware(): Promise<ThreatData> {
     try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (this.abuseChAuthKey) {
+        headers['Auth-Key'] = this.abuseChAuthKey;
+      }
+      
       const response = await axios.post(
         this.abuseChUrls.malware,
         { query: 'get_recent', selector: 'time' },
         { 
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           timeout: 30000 
         }
       );
