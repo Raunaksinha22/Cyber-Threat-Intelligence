@@ -5,11 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Send, Bot, User, Clock } from "lucide-react";
 
-// Mock data for quick queries (Chat Assistant is currently skipped from implementation)
 const quickQueries = [
   "What are the top phishing domains this week?",
   "Show me critical CVEs from last 24h",
   "Analyze recent malware trends"
+];
+
+const chatSessions = [
+  { id: 1, title: "Phishing Campaign Analysis", time: "2h ago" },
+  { id: 2, title: "CVE Threat Assessment", time: "5h ago" },
+  { id: 3, title: "Malware IOC Investigation", time: "1d ago" }
 ];
 
 interface Message {
