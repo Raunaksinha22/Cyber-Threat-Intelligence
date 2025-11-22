@@ -138,8 +138,44 @@ Preferred communication style: Simple, everyday language.
 DATABASE_URL (optional - for PostgreSQL if needed)
 OTX_API_KEY (recommended - AlienVault OTX)
 VIRUSTOTAL_API_KEY (recommended - VirusTotal)
+ABUSECH_AUTH_KEY (recommended - Abuse.ch MalwareBazaar)
 PHISHTANK_API_KEY (optional - better rate limits)
 ```
+
+### API Key Setup Instructions
+
+**Currently Working (No API Key Required)**:
+✓ **NVD CVEs** - Fetching latest CVE data from NIST
+✓ **CISA KEV** - Fetching known exploited vulnerabilities  
+✓ **Abuse.ch URLhaus** - Public malicious URL feed
+✓ **Abuse.ch ThreatFox** - Public IOC feed
+
+**Requires API Keys (Optional but Recommended)**:
+
+1. **AlienVault OTX** (`OTX_API_KEY`):
+   - Sign up at: https://otx.alienvault.com/
+   - Navigate to your profile dashboard
+   - Find your "OTX KEY" in the top right corner
+   - Add to environment variables: `OTX_API_KEY=your_key_here`
+   - Benefits: Access to threat pulses and indicators (10,000 requests/hour)
+
+2. **VirusTotal** (`VIRUSTOTAL_API_KEY`):
+   - Sign up at: https://www.virustotal.com/
+   - Go to: https://www.virustotal.com/gui/my-apikey
+   - Copy your API key
+   - Add to environment variables: `VIRUSTOTAL_API_KEY=your_key_here`
+   - Benefits: File/URL/domain reputation checks
+
+3. **Abuse.ch MalwareBazaar** (`ABUSECH_AUTH_KEY`):
+   - Register at: https://auth.abuse.ch/
+   - Login using X (Twitter), LinkedIn, Google, or GitHub
+   - Generate your Auth-Key in the profile "Optional" section
+   - Add to environment variables: `ABUSECH_AUTH_KEY=your_key_here`
+   - Benefits: Access to recent malware samples (free for commercial and non-commercial use)
+
+4. **PhishTank** (`PHISHTANK_API_KEY`) - Optional:
+   - Register at: https://www.phishtank.com/api_register.php
+   - Benefits: Better rate limits for phishing domain lookups
 
 **Monorepo Structure**:
 - `/client` - React frontend application
