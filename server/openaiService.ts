@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
 // This is using OpenAI's API, which points to OpenAI's API servers and requires your own API key.
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// the newest OpenAI model is "gpt-5-mini" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface ChatMessage {
@@ -75,7 +75,7 @@ Format your responses with clear structure:
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+      model: "gpt-5-mini", // using the GPT-5 Mini model as requested
       messages: messages,
       max_completion_tokens: 2048,
     });
@@ -119,7 +119,7 @@ Always provide accurate, actionable information based on the available threat in
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+      model: "gpt-5-mini", // using the GPT-5 Mini model as requested
       messages: chatMessages,
       max_completion_tokens: 2048,
     });
