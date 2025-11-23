@@ -3,12 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Bot, User, Clock } from "lucide-react";
+import { Send, Bot, User, Clock, Loader2 } from "lucide-react";
+import { chatAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const quickQueries = [
-  "What are the top phishing domains this week?",
-  "Show me critical CVEs from last 24h",
-  "Analyze recent malware trends"
+  "What are the top phishing domains detected recently?",
+  "Show me critical CVEs from the last few days",
+  "Analyze recent malware trends in the threat feeds"
 ];
 
 const chatSessions = [
@@ -29,14 +31,16 @@ export default function ChatAssistant() {
     {
       id: 1,
       sender: "bot",
-      content: "Hello! I'm your Cyber Threat Intelligence Assistant. I can help you analyze threats, search IOCs, and provide insights about your security data. What would you like to know?",
-      timestamp: "10:30 AM"
+      content: "Hello! I'm your Cyber Threat Intelligence Assistant powered by AI. I can help you analyze threats, search IOCs, and provide insights about your security data. What would you like to know?",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
+  const handleSend = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: messages.length + 1,
@@ -47,22 +51,49 @@ export default function ChatAssistant() {
 
     setMessages([...messages, userMessage]);
     setInputValue("");
+    setIsLoading(true);
 
-    // Simulate bot response
-    setTimeout(() => {
+    try {
+      // Prepare conversation history for context
+      const conversationHistory = messages.map(msg => ({
+        sender: msg.sender,
+        content: msg.content
+      }));
+
+      const response = await chatAPI.sendMessage(inputValue, conversationHistory);
+
       const botMessage: Message = {
         id: messages.length + 2,
         sender: "bot",
-        content: `Based on our threat feed analysis, here are the top phishing domains detected this week:\n\n🔴 malicious-banking-site.com - 47 detections\n🔴 fake-crypto-exchange.org - 32 detections\n🟡 phish-paypal.net - 28 detections\n🟡 evil-amazon.co - 23 detections\n🟢 scam-microsoft.org - 19 detections\n\n**Trend Analysis:** Phishing attacks targeting financial services increased by 34% compared to last week. Most campaigns are using typosquatting techniques.`,
+        content: response.data.response,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
+
       setMessages(prev => [...prev, botMessage]);
-    }, 1000);
+    } catch (error: any) {
+      console.error("Chat error:", error);
+      
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        sender: "bot",
+        content: "I apologize, but I encountered an error processing your request. Please make sure the OpenAI API is configured correctly and try again.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+
+      toast({
+        title: "Chat Error",
+        description: error.response?.data?.error || "Failed to get response from AI assistant",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickQuery = (query: string) => {
     setInputValue(query);
-    setTimeout(() => handleSend(), 100);
   };
 
   return (
@@ -70,7 +101,7 @@ export default function ChatAssistant() {
       <div>
         <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">Chat Assistant</h1>
         <p className="text-muted-foreground" data-testid="text-page-subtitle">
-          AI-powered threat intelligence analysis and querying
+          AI-powered threat intelligence analysis and querying (GPT-5)
         </p>
       </div>
 
@@ -103,8 +134,8 @@ export default function ChatAssistant() {
                 <Bot className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h3 className="font-semibold" data-testid="text-assistant-title">CTI Assistant</h3>
-                <p className="text-xs text-muted-foreground">Online</p>
+                <h3 className="font-semibold" data-testid="text-assistant-title">CTI Assistant (GPT-5)</h3>
+                <p className="text-xs text-muted-foreground">Online • Real-time threat analysis</p>
               </div>
             </div>
 
@@ -139,6 +170,20 @@ export default function ChatAssistant() {
                   )}
                 </div>
               ))}
+              
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="max-w-[70%]">
+                    <div className="p-4 rounded-lg bg-muted text-foreground flex items-center gap-3">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Analyzing threat data...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t border-border">
@@ -163,11 +208,16 @@ export default function ChatAssistant() {
                   placeholder="Ask about threats, IOCs, CVEs..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSend()}
+                  onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSend()}
+                  disabled={isLoading}
                   data-testid="input-chat-message"
                 />
-                <Button onClick={handleSend} data-testid="button-send-message">
-                  <Send className="w-4 h-4" />
+                <Button 
+                  onClick={handleSend} 
+                  disabled={isLoading || !inputValue.trim()}
+                  data-testid="button-send-message"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </Button>
               </div>
             </div>

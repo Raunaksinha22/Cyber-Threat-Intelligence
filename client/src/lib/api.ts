@@ -41,4 +41,18 @@ export const settingsAPI = {
   getSources: () => api.get("/settings/sources")
 };
 
+// Threat Intelligence API
+export const threatIntelAPI = {
+  refresh: () => api.post("/threat-intel/refresh"),
+  getStatus: () => api.get("/threat-intel/status")
+};
+
+// Chat Assistant API
+export const chatAPI = {
+  sendMessage: (message: string, conversationHistory?: any[]) => 
+    api.post("/chat/message", { message, conversationHistory }),
+  analyzeIOC: (ioc: string) => 
+    api.post("/chat/analyze-ioc", { ioc })
+};
+
 export default api;

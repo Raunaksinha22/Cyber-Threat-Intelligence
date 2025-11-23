@@ -1,41 +1,74 @@
 import { useState, useEffect } from "react";
-import { Activity, Radio, AlertTriangle, Globe, Loader2 } from "lucide-react";
+import { Activity, Radio, AlertTriangle, Globe, Loader2, RefreshCw } from "lucide-react";
 import KPICard from "@/components/KPICard";
 import DataTable from "@/components/DataTable";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { dashboardAPI } from "@/lib/api";
+import { dashboardAPI, threatIntelAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [recentThreats, setRecentThreats] = useState<any[]>([]);
   const [threatTrends, setThreatTrends] = useState<any[]>([]);
+  const { toast } = useToast();
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [statsRes, threatsRes, trendsRes] = await Promise.all([
+        dashboardAPI.getStats(),
+        dashboardAPI.getRecentThreats(),
+        dashboardAPI.getThreatTrends()
+      ]);
+
+      setStats(statsRes.data);
+      setRecentThreats(threatsRes.data);
+      setThreatTrends(trendsRes.data);
+    } catch (err) {
+      setError("Failed to load dashboard data. Please try again later.");
+      console.error("Dashboard fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      toast({
+        title: "Refreshing Feeds",
+        description: "Fetching latest threat intelligence data...",
+      });
+
+      await threatIntelAPI.refresh();
+      
+      // Fetch updated dashboard data
+      await fetchDashboardData();
+
+      toast({
+        title: "Feeds Refreshed",
+        description: "Latest threat intelligence data has been loaded successfully.",
+      });
+    } catch (err) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh threat feeds. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Refresh error:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const [statsRes, threatsRes, trendsRes] = await Promise.all([
-          dashboardAPI.getStats(),
-          dashboardAPI.getRecentThreats(),
-          dashboardAPI.getThreatTrends()
-        ]);
-
-        setStats(statsRes.data);
-        setRecentThreats(threatsRes.data);
-        setThreatTrends(trendsRes.data);
-      } catch (err) {
-        setError("Failed to load dashboard data. Please try again later.");
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
   }, []);
 
@@ -71,11 +104,21 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">Dashboard</h1>
-        <p className="text-muted-foreground" data-testid="text-page-subtitle">
-          Overview of your cyber threat intelligence
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">Dashboard</h1>
+          <p className="text-muted-foreground" data-testid="text-page-subtitle">
+            Overview of your cyber threat intelligence
+          </p>
+        </div>
+        <Button 
+          onClick={handleRefresh} 
+          disabled={refreshing}
+          data-testid="button-refresh-feeds"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh Feeds'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
