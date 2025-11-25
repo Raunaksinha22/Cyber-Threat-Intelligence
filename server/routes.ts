@@ -275,19 +275,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input", details: result.error });
       }
 
-      const { username, password } = result.data;
+      const { username, email, password } = result.data;
 
       if (password.length < 6) {
         return res.status(400).json({ error: "Password must be at least 6 characters long" });
       }
 
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
+      const existingUserByUsername = await storage.getUserByUsername(username);
+      if (existingUserByUsername) {
         return res.status(409).json({ error: "Username already exists" });
       }
 
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        return res.status(409).json({ error: "Email already exists" });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ username, password: hashedPassword });
+      const user = await storage.createUser({ username, email, password: hashedPassword });
 
       const token = generateToken(user.id, user.username);
 
@@ -304,13 +309,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { emailOrUsername, password } = req.body;
 
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+      if (!emailOrUsername || !password) {
+        return res.status(400).json({ error: "Email/username and password are required" });
       }
 
-      const user = await storage.getUserByUsername(username);
+      const user = await storage.getUserByEmailOrUsername(emailOrUsername);
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -345,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        user: { id: user.id, username: user.username }
+        user: { id: user.id, username: user.username, email: user.email }
       });
     } catch (error: any) {
       console.error("Get user error:", error);

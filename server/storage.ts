@@ -6,6 +6,8 @@ import { ObjectId } from "mongodb";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByEmailOrUsername(emailOrUsername: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 }
 
@@ -23,6 +25,18 @@ export class MemStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
       (user) => user.username === username,
+    );
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email,
+    );
+  }
+
+  async getUserByEmailOrUsername(emailOrUsername: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === emailOrUsername || user.username === emailOrUsername,
     );
   }
 
@@ -51,6 +65,7 @@ export class MongoDBStorage implements IStorage {
     return {
       id: user._id.toString(),
       username: user.username,
+      email: user.email,
       password: user.password,
     };
   }
@@ -64,6 +79,40 @@ export class MongoDBStorage implements IStorage {
     return {
       id: user._id.toString(),
       username: user.username,
+      email: user.email,
+      password: user.password,
+    };
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const collection = await this.getCollection();
+    const user = await collection.findOne({ email });
+    
+    if (!user) return undefined;
+    
+    return {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      password: user.password,
+    };
+  }
+
+  async getUserByEmailOrUsername(emailOrUsername: string): Promise<User | undefined> {
+    const collection = await this.getCollection();
+    const user = await collection.findOne({
+      $or: [
+        { email: emailOrUsername },
+        { username: emailOrUsername }
+      ]
+    });
+    
+    if (!user) return undefined;
+    
+    return {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
       password: user.password,
     };
   }
@@ -72,6 +121,7 @@ export class MongoDBStorage implements IStorage {
     const collection = await this.getCollection();
     const result = await collection.insertOne({
       username: insertUser.username,
+      email: insertUser.email,
       password: insertUser.password,
       createdAt: new Date(),
     });
@@ -79,6 +129,7 @@ export class MongoDBStorage implements IStorage {
     return {
       id: result.insertedId.toString(),
       username: insertUser.username,
+      email: insertUser.email,
       password: insertUser.password,
     };
   }

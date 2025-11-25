@@ -11,11 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Shield } from 'lucide-react';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
+  emailOrUsername: z.string().min(1, 'Email or username is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-const signupSchema = loginSchema.extend({
+const signupSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -33,7 +36,7 @@ export default function Login() {
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      emailOrUsername: '',
       password: '',
     },
   });
@@ -42,6 +45,7 @@ export default function Login() {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       username: '',
+      email: '',
       password: '',
       confirmPassword: '',
     },
@@ -86,6 +90,7 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: data.username,
+          email: data.email,
           password: data.password,
         }),
       });
@@ -140,14 +145,15 @@ export default function Login() {
               <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                 <FormField
                   control={loginForm.control}
-                  name="username"
+                  name="emailOrUsername"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Email or Username</FormLabel>
                       <FormControl>
                         <Input
-                          data-testid="input-username"
-                          placeholder="Enter your username"
+                          data-testid="input-email-username"
+                          placeholder="Enter your email or username"
+                          autoComplete="username"
                           {...field}
                         />
                       </FormControl>
@@ -196,6 +202,26 @@ export default function Login() {
                         <Input
                           data-testid="input-username"
                           placeholder="Enter your username"
+                          autoComplete="username"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signupForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          data-testid="input-email"
+                          type="email"
+                          placeholder="Enter your email"
+                          autoComplete="email"
                           {...field}
                         />
                       </FormControl>
