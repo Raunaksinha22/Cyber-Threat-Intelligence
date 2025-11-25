@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export default function CVEReports() {
   const [aiAnalysis, setAiAnalysis] = useState<string>("");
   const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
   const { toast } = useToast();
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -61,12 +62,29 @@ export default function CVEReports() {
   };
 
   const handleGenerateAnalysis = async (cve: any) => {
+    // Clear any pending close timeout to prevent state reset
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+
     setSelectedCve(cve);
     setAiAnalysisOpen(true);
     setAiAnalysis("");
     setGeneratingAnalysis(true);
 
     try {
+      console.log("Generating AI analysis for CVE:", cve.id);
+      console.log("Request payload:", {
+        cveId: cve.id,
+        cveData: {
+          title: cve.title,
+          description: cve.description,
+          cvssScore: cve.cvssScore,
+          published: cve.published
+        }
+      });
+
       const response = await cveReportsAPI.generateAnalysis(cve.id, {
         title: cve.title,
         description: cve.description,
@@ -74,21 +92,52 @@ export default function CVEReports() {
         published: cve.published
       });
       
-      setAiAnalysis(response.data.analysis);
+      console.log("AI analysis response:", response.data);
+      
+      // Defensive check for missing analysis data
+      if (response.data && response.data.analysis) {
+        setAiAnalysis(response.data.analysis);
+        
+        toast({
+          title: "Analysis Generated",
+          description: "AI analysis has been generated successfully.",
+        });
+      } else {
+        throw new Error("Analysis data is missing from response");
+      }
+    } catch (err: any) {
+      console.error("AI analysis error:", err);
+      const errorMessage = err.response?.data?.error || err.message || "Failed to generate AI analysis. Please check your OpenAI API configuration.";
       
       toast({
-        title: "Analysis Generated",
-        description: "AI analysis has been generated successfully.",
-      });
-    } catch (err: any) {
-      toast({
         title: "Analysis Failed",
-        description: err.response?.data?.error || "Failed to generate AI analysis. Please check your OpenAI API configuration.",
+        description: errorMessage,
         variant: "destructive",
       });
-      setAiAnalysis("Failed to generate analysis. Please ensure OpenAI API is configured correctly.");
+      setAiAnalysis(`Error: ${errorMessage}`);
     } finally {
       setGeneratingAnalysis(false);
+    }
+  };
+
+  const handleCloseAnalysisModal = (open: boolean) => {
+    setAiAnalysisOpen(open);
+    
+    if (open) {
+      // Clear any pending close timeout if reopening
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+    } else {
+      // Only clear state when actually closing
+      // Wait for modal animation to complete before clearing state
+      closeTimeoutRef.current = setTimeout(() => {
+        setSelectedCve(null);
+        setAiAnalysis("");
+        setGeneratingAnalysis(false);
+        closeTimeoutRef.current = null;
+      }, 300);
     }
   };
 
@@ -195,7 +244,7 @@ export default function CVEReports() {
         )}
       </Card>
 
-      <Dialog open={aiAnalysisOpen} onOpenChange={setAiAnalysisOpen}>
+      <Dialog open={aiAnalysisOpen} onOpenChange={handleCloseAnalysisModal}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

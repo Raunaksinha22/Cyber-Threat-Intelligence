@@ -221,9 +221,18 @@ function processThreatData(data: any) {
   const totalSources = Object.keys(sourceStatus).length;
   const failedSources = Object.values(sourceStatus).filter(s => !s.success);
   
+  // Deduplicate CVE reports by ID (keep first occurrence)
+  const uniqueCVEs = new Map();
+  cveReports.forEach(cve => {
+    if (!uniqueCVEs.has(cve.id)) {
+      uniqueCVEs.set(cve.id, cve);
+    }
+  });
+  const deduplicatedCVEs = Array.from(uniqueCVEs.values());
+  
   // Update cached data with ONLY real-time data
   cachedData.threatFeeds = threatFeeds;
-  cachedData.cveReports = cveReports;
+  cachedData.cveReports = deduplicatedCVEs;
   cachedData.recentThreats = recentThreats.length > 0 ? recentThreats : mockData.recentThreats;
   cachedData.sourceStatus = sourceStatus;
   cachedData.dashboardStats = {
