@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, User, Loader2 } from "lucide-react";
+import { Search, User, Loader2, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +19,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { searchAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function TopBar() {
+  const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -104,11 +115,41 @@ export default function TopBar() {
         </div>
         
         <div className="flex items-center gap-4">
-          <Avatar className="w-8 h-8 cursor-pointer hover-elevate" data-testid="button-user-profile">
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-              <User className="w-4 h-4" />
-            </AvatarFallback>
-          </Avatar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                data-testid="button-user-profile"
+              >
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    {user?.username?.substring(0, 2).toUpperCase() || <User className="w-4 h-4" />}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{user?.username}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.id}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={logout}
+                data-testid="button-logout"
+                className="text-destructive focus:text-destructive cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

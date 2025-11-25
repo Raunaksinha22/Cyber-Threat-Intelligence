@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import * as mockData from "./mockData.js";
 import { ThreatIntelligenceFetcher } from "./threatIntelFetcher";
 import { analyzeThreatWithAI, chatWithAssistant, type ChatMessage } from "./openaiService";
+import { storage } from "./storage";
+import bcrypt from "bcryptjs";
+import { authenticateToken, generateToken, type AuthRequest } from "./middleware/auth";
+import { insertUserSchema } from "@shared/schema";
 
 // Initialize threat intelligence fetcher
 const fetcher = new ThreatIntelligenceFetcher();
@@ -262,6 +266,97 @@ backgroundFetcher();
 setInterval(backgroundFetcher, 3600000); // 1 hour
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication endpoints
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const result = insertUserSchema.safeParse(req.body);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid input", details: result.error });
+      }
+
+      const { username, password } = result.data;
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters long" });
+      }
+
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({ username, password: hashedPassword });
+
+      const token = generateToken(user.id, user.username);
+
+      res.status(201).json({
+        message: "User created successfully",
+        token,
+        user: { id: user.id, username: user.username }
+      });
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      res.status(500).json({ error: "Server error during signup" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const token = generateToken(user.id, user.username);
+
+      res.json({
+        message: "Login successful",
+        token,
+        user: { id: user.id, username: user.username }
+      });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Server error during login" });
+    }
+  });
+
+  app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(req.userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({
+        user: { id: user.id, username: user.username }
+      });
+    } catch (error: any) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    res.json({ message: "Logout successful" });
+  });
+
   // Dashboard endpoints
   app.get("/api/dashboard/stats", (req, res) => {
     res.json(cachedData.dashboardStats);
