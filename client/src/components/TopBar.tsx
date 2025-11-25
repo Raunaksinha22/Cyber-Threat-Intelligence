@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, User, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,26 +16,62 @@ export default function TopBar() {
   const [searchResults, setSearchResults] = useState<any>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeQueryRef = useRef<string>("");
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    
+  const performSearch = async (query: string) => {
     if (!query.trim()) {
       setShowResults(false);
+      setSearchResults(null);
+      setIsSearching(false);
+      activeQueryRef.current = "";
       return;
     }
+
+    // Track this as the active query
+    activeQueryRef.current = query;
 
     try {
       setIsSearching(true);
       const response = await searchAPI.search(query);
-      setSearchResults(response.data);
-      setShowResults(true);
-    } catch (err) {
+      
+      // Only update results if this is still the active query
+      if (activeQueryRef.current === query) {
+        setSearchResults(response.data);
+        setShowResults(true);
+      }
+    } catch (err: any) {
       console.error("Search error:", err);
     } finally {
-      setIsSearching(false);
+      // Only clear loading if this is still the active query
+      if (activeQueryRef.current === query) {
+        setIsSearching(false);
+      }
     }
   };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    
+    // Clear existing timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Set new timer - search after 300ms of no typing
+    debounceTimer.current = setTimeout(() => {
+      performSearch(query);
+    }, 300);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
 
   const getSeverityColor = (severity: string) => {
     const colors: Record<string, string> = {

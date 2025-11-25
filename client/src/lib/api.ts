@@ -16,7 +16,7 @@ export const dashboardAPI = {
 
 // Threat Feeds API
 export const threatFeedsAPI = {
-  getFeeds: (params: { search?: string; type?: string; severity?: string; page?: number }) => 
+  getFeeds: (params: { search?: string; type?: string; severity?: string; page?: number; itemsPerPage?: string }) => 
     api.get("/threat-feeds", { params })
 };
 

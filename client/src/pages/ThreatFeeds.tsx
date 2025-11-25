@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { threatFeedsAPI, exportAPI } from "@/lib/api";
+import { threatFeedsAPI, exportAPI, settingsAPI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ThreatFeeds() {
@@ -23,7 +23,29 @@ export default function ThreatFeeds() {
   const [error, setError] = useState<string | null>(null);
   const [feedsData, setFeedsData] = useState<any>({ data: [], totalItems: 0, totalPages: 0 });
   const [exporting, setExporting] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState<number | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { toast } = useToast();
+
+  // Load settings to get items per page preference
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await settingsAPI.getGeneral();
+        if (response.data.itemsPerPage) {
+          setItemsPerPage(parseInt(response.data.itemsPerPage));
+        } else {
+          setItemsPerPage(20); // Default value
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+        setItemsPerPage(20); // Fallback to default on error
+      } finally {
+        setSettingsLoaded(true);
+      }
+    };
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     // Reset to page 1 when filters change
@@ -31,6 +53,11 @@ export default function ThreatFeeds() {
   }, [searchQuery, typeFilter, severityFilter]);
 
   useEffect(() => {
+    // Don't fetch data until settings are loaded
+    if (!settingsLoaded || itemsPerPage === null) {
+      return;
+    }
+
     const fetchFeeds = async () => {
       try {
         setLoading(true);
@@ -40,7 +67,8 @@ export default function ThreatFeeds() {
           search: searchQuery,
           type: typeFilter,
           severity: severityFilter,
-          page: currentPage
+          page: currentPage,
+          itemsPerPage: itemsPerPage.toString()
         });
 
         setFeedsData(response.data);
@@ -53,7 +81,7 @@ export default function ThreatFeeds() {
     };
 
     fetchFeeds();
-  }, [searchQuery, typeFilter, severityFilter, currentPage]);
+  }, [searchQuery, typeFilter, severityFilter, currentPage, itemsPerPage, settingsLoaded]);
 
   const paginatedData = feedsData.data;
   const totalPages = feedsData.totalPages || 1;
@@ -228,7 +256,7 @@ export default function ThreatFeeds() {
 
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-muted-foreground">
-            Showing {feedsData.totalItems === 0 ? 0 : ((currentPage - 1) * 7) + 1}-{Math.min(currentPage * 7, feedsData.totalItems)} of {feedsData.totalItems} IOCs
+            Showing {feedsData.totalItems === 0 ? 0 : ((currentPage - 1) * (itemsPerPage ?? 20)) + 1}-{Math.min(currentPage * (itemsPerPage ?? 20), feedsData.totalItems)} of {feedsData.totalItems} IOCs
           </p>
           <div className="flex items-center gap-2">
             <Button

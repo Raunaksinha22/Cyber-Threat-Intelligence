@@ -290,9 +290,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Threat Feeds endpoint with filtering and pagination
   app.get("/api/threat-feeds", (req, res) => {
-    const { search = "", type = "all", severity = "all", page = "1" } = req.query;
+    const { search = "", type = "all", severity = "all", page = "1", itemsPerPage: itemsPerPageParam } = req.query;
     const pageNum = parseInt(page as string);
-    const itemsPerPage = 7;
+    
+    // Use itemsPerPage from query parameter, or from saved settings, or default to 20
+    let itemsPerPage = 20; // Default value
+    if (itemsPerPageParam) {
+      itemsPerPage = parseInt(itemsPerPageParam as string);
+    } else if (cachedData.settings?.general?.itemsPerPage) {
+      itemsPerPage = parseInt(cachedData.settings.general.itemsPerPage);
+    }
 
     // Use real data if available, otherwise fallback to mock data
     const dataSource = cachedData.threatFeeds.length > 0 ? cachedData.threatFeeds : mockData.iocDatabase;
