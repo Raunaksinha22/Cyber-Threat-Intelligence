@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import * as mockData from "./mockData.js";
 import { ThreatIntelligenceFetcher } from "./threatIntelFetcher";
 import { analyzeThreatWithAI, chatWithAssistant, type ChatMessage } from "./openaiService";
 import { storage } from "./storage";
@@ -22,6 +21,15 @@ interface CachedData {
   sourceStatus: Record<string, { success: boolean; count: number; error?: string; lastFetch?: string }>;
   settings?: any;
 }
+
+// Default settings when no settings have been saved
+const defaultSettings = {
+  general: {
+    autoRefreshInterval: "5 minutes",
+    timezone: "UTC",
+    itemsPerPage: "20"
+  }
+};
 
 const cachedData: CachedData = {
   lastUpdated: null,
@@ -239,7 +247,7 @@ function processThreatData(data: any) {
   // Update cached data with ONLY real-time data
   cachedData.threatFeeds = threatFeeds;
   cachedData.cveReports = deduplicatedCVEs;
-  cachedData.recentThreats = recentThreats.length > 0 ? recentThreats : mockData.recentThreats;
+  cachedData.recentThreats = recentThreats;
   cachedData.sourceStatus = sourceStatus;
   cachedData.dashboardStats = {
     totalIOCs: { 
@@ -372,7 +380,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/dashboard/threat-trends", (req, res) => {
-    res.json(mockData.threatTrends);
+    // Generate threat trends from real data
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayCounts = new Map<string, number>();
+    
+    cachedData.threatFeeds.forEach(threat => {
+      try {
+        const date = new Date(threat.date);
+        if (!isNaN(date.getTime())) {
+          const dayName = days[date.getDay()];
+          dayCounts.set(dayName, (dayCounts.get(dayName) || 0) + 1);
+        }
+      } catch (e) {
+        // Skip invalid dates
+      }
+    });
+
+    const result = days.map(day => ({
+      day,
+      threats: dayCounts.get(day) || 0
+    }));
+    
+    res.json(result);
   });
 
   // Source status endpoint - shows which feeds are working/failing
@@ -401,10 +430,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       itemsPerPage = parseInt(cachedData.settings.general.itemsPerPage);
     }
 
-    // Use real data if available, otherwise fallback to mock data
-    const dataSource = cachedData.threatFeeds.length > 0 ? cachedData.threatFeeds : mockData.iocDatabase;
-
-    let filtered = dataSource.filter((item: any) => {
+    // Use only real data from threat feeds
+    let filtered = cachedData.threatFeeds.filter((item: any) => {
       const matchesSearch = !search || 
         item.value.toLowerCase().includes((search as string).toLowerCase()) ||
         item.source.toLowerCase().includes((search as string).toLowerCase());
@@ -432,10 +459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/cve-reports", (req, res) => {
     const { search = "" } = req.query;
     
-    // Use real data if available, otherwise fallback to mock data
-    const dataSource = cachedData.cveReports.length > 0 ? cachedData.cveReports : mockData.cveReports;
-    
-    const filtered = dataSource.filter((cve: any) => {
+    // Use only real data from CVE reports
+    const filtered = cachedData.cveReports.filter((cve: any) => {
       if (!search) return true;
       const searchLower = (search as string).toLowerCase();
       return (
@@ -562,7 +587,7 @@ Format the response in a clear, professional manner suitable for a security oper
       .slice(-8)
       .map(({ dateStr, threats }) => ({ date: dateStr, threats }));
     
-    res.json(result.length > 0 ? result : mockData.threatsPerDay);
+    res.json(result);
   });
 
   app.get("/api/analytics/threat-type-distribution", (req, res) => {
@@ -583,7 +608,7 @@ Format the response in a clear, professional manner suitable for a security oper
       }))
       .sort((a, b) => b.value - a.value);
     
-    res.json(result.length > 0 ? result : mockData.threatTypeDistribution);
+    res.json(result);
   });
 
   app.get("/api/analytics/active-sources", (req, res) => {
@@ -600,7 +625,7 @@ Format the response in a clear, professional manner suitable for a security oper
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
     
-    res.json(result.length > 0 ? result : mockData.activeSources);
+    res.json(result);
   });
 
   app.get("/api/analytics/severity-trends", (req, res) => {
@@ -625,7 +650,7 @@ Format the response in a clear, professional manner suitable for a security oper
       };
     });
     
-    res.json(result.some(r => r.Critical + r.High + r.Medium + r.Low > 0) ? result : mockData.severityTrends);
+    res.json(result);
   });
 
   // Settings endpoints
@@ -634,12 +659,19 @@ Format the response in a clear, professional manner suitable for a security oper
     if (cachedData.settings?.general) {
       res.json(cachedData.settings.general);
     } else {
-      res.json(mockData.settingsGeneral);
+      res.json(defaultSettings.general);
     }
   });
 
   app.get("/api/settings/sources", (req, res) => {
-    res.json(mockData.settingsSources);
+    // Generate source settings from real source status
+    const sources = Object.entries(cachedData.sourceStatus).map(([name, status], index) => ({
+      id: index + 1,
+      name,
+      lastSync: status.lastFetch ? new Date(status.lastFetch).toLocaleTimeString() : 'N/A',
+      status: status.success ? 'active' : 'inactive'
+    }));
+    res.json(sources);
   });
 
   app.post("/api/settings", (req, res) => {
@@ -652,7 +684,7 @@ Format the response in a clear, professional manner suitable for a security oper
     res.json({ success: true, message: "Settings saved successfully" });
   });
 
-  // New threat intelligence endpoints
+  // Threat intelligence endpoints
   app.get("/api/threat-intel/status", (req, res) => {
     res.json({
       lastUpdated: cachedData.lastUpdated,
@@ -793,20 +825,16 @@ Format the response in a clear, professional manner suitable for a security oper
       return res.json({ threatFeeds: [], cveReports: [] });
     }
 
-    // Use real data if available, otherwise fallback to mock data
-    const threatFeedSource = cachedData.threatFeeds.length > 0 ? cachedData.threatFeeds : mockData.iocDatabase;
-    const cveSource = cachedData.cveReports.length > 0 ? cachedData.cveReports : mockData.cveReports;
-
-    // Search threat feeds
-    const threatFeedResults = threatFeedSource.filter((item: any) => 
+    // Search threat feeds from real data
+    const threatFeedResults = cachedData.threatFeeds.filter((item: any) => 
       item.value.toLowerCase().includes(query) ||
       item.source.toLowerCase().includes(query) ||
       item.threatType.toLowerCase().includes(query) ||
       item.type.toLowerCase().includes(query)
     ).slice(0, 10);
 
-    // Search CVE reports
-    const cveResults = cveSource.filter((cve: any) => 
+    // Search CVE reports from real data
+    const cveResults = cachedData.cveReports.filter((cve: any) => 
       cve.id.toLowerCase().includes(query) ||
       cve.title.toLowerCase().includes(query) ||
       cve.description.toLowerCase().includes(query)
@@ -823,10 +851,8 @@ Format the response in a clear, professional manner suitable for a security oper
   app.get("/api/export/threat-feeds", (req, res) => {
     const { search = "", type = "all", severity = "all" } = req.query;
 
-    // Use real data if available, otherwise fallback to mock data
-    const dataSource = cachedData.threatFeeds.length > 0 ? cachedData.threatFeeds : mockData.iocDatabase;
-
-    let filtered = dataSource.filter((item: any) => {
+    // Use only real data from threat feeds
+    let filtered = cachedData.threatFeeds.filter((item: any) => {
       const matchesSearch = !search || 
         item.value.toLowerCase().includes((search as string).toLowerCase()) ||
         item.source.toLowerCase().includes((search as string).toLowerCase());
