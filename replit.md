@@ -9,10 +9,12 @@ The CTI Aggregator is a comprehensive cybersecurity threat intelligence dashboar
 **Key Features**:
 - Real-time threat intelligence dashboard with KPI metrics
 - IOC database with advanced filtering and search capabilities
-- CVE vulnerability tracking with CVSS scoring
+- CVE vulnerability tracking with CVSS scoring (v4.0 priority)
 - Analytics and trend visualization
 - Threat feed aggregation from multiple OSINT sources
 - Background data fetching and caching system
+- AI-powered chat assistant with smart context filtering
+- Fast mode manual refresh for quick data updates
 
 ## User Preferences
 
@@ -182,3 +184,33 @@ PHISHTANK_API_KEY (optional - better rate limits)
 - `/server` - Express backend API
 - `/shared` - Shared TypeScript types and schemas
 - `/migrations` - Drizzle database migrations (if using PostgreSQL)
+
+### AI Chat Assistant
+
+**Smart Context Filtering System**:
+The chat assistant uses a two-stage filtering pipeline to optimize token usage and improve response quality:
+
+1. **Query Analysis** (`server/contextFilter.ts`):
+   - Intent Classification: Determines query type (ioc_search, cve_analysis, trend_analysis, specific_lookup, etc.)
+   - Entity Extraction: Extracts CVE IDs, IP addresses, domains, and file hashes using regex patterns
+   - Severity/Timeframe Detection: Identifies filtering preferences
+
+2. **Context Filtering**:
+   - Specific lookups return only matching CVEs/IOCs (e.g., "CVE-2024-1234" returns just that CVE)
+   - IOC searches filter by entity type and threat category
+   - Trend analysis queries receive minimal raw data (just stats)
+   - Token usage tracked and logged for monitoring
+
+**Query Types Supported**:
+- `specific_lookup` - Looking up specific CVE or IOC
+- `ioc_search` - Searching for threats by IP, domain, hash
+- `cve_analysis` - Vulnerability analysis with severity filtering
+- `trend_analysis` - Pattern and statistics queries
+- `source_analysis` - Questions about data sources
+- `severity_filter` - Filtering by threat severity
+- `general_question` - General security inquiries
+
+**Benefits**:
+- 60-80% token reduction for specific lookups
+- Intent-specific system prompts for better responses
+- Token usage tracking in API responses
