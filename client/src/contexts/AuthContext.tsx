@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 
 interface User {
@@ -21,6 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [shouldRedirectToHome, setShouldRedirectToHome] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -35,6 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  // Handle redirect to home after login state is fully updated
+  useEffect(() => {
+    if (shouldRedirectToHome && user && token) {
+      setShouldRedirectToHome(false);
+      setLocation('/');
+    }
+  }, [shouldRedirectToHome, user, token, setLocation]);
 
   const verifyToken = async (token: string) => {
     try {
@@ -63,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-    setLocation('/');
+    setShouldRedirectToHome(true);
   };
 
   const logout = async () => {
