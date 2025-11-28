@@ -55,6 +55,142 @@ You have two options for MongoDB:
    git --version
    ```
 
+## Removing Replit-Specific Files (For Local Development)
+
+If you cloned this project from Replit and want to run it locally without Replit dependencies, follow these steps:
+
+### Step 1: Delete Replit Configuration Files
+
+Delete the following files from your project root:
+
+```bash
+# On Windows (Command Prompt)
+del .replit
+del replit.md
+
+# On Windows (PowerShell)
+Remove-Item .replit
+Remove-Item replit.md
+
+# On macOS/Linux
+rm .replit replit.md
+```
+
+These files are:
+- `.replit` - Replit-specific configuration for running the app on their platform
+- `replit.md` - Documentation specific to the Replit environment
+- `design_guidelines.md` (optional) - Design guidelines used by Replit's AI agent
+
+```bash
+# Optional: Also delete design_guidelines.md
+del design_guidelines.md   # Windows Command Prompt
+Remove-Item design_guidelines.md   # Windows PowerShell
+rm design_guidelines.md   # macOS/Linux
+```
+
+### Step 2: Update vite.config.ts
+
+Replace the contents of `vite.config.ts` with this local-friendly version that removes Replit plugin dependencies:
+
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "client", "src"),
+      "@shared": path.resolve(__dirname, "shared"),
+      "@assets": path.resolve(__dirname, "attached_assets"),
+    },
+  },
+  root: path.resolve(__dirname, "client"),
+  build: {
+    outDir: path.resolve(__dirname, "dist/public"),
+    emptyOutDir: true,
+  },
+  server: {
+    fs: {
+      strict: true,
+      deny: ["**/.*"],
+    },
+  },
+});
+```
+
+### Step 3: Remove Replit Packages from package.json
+
+Open `package.json` and remove these Replit-specific packages from the `devDependencies` section:
+
+```json
+"@replit/vite-plugin-cartographer": "^0.4.1",
+"@replit/vite-plugin-dev-banner": "^0.1.1",
+"@replit/vite-plugin-runtime-error-modal": "^0.0.3",
+```
+
+After editing, your `devDependencies` should look like this (without the Replit packages):
+
+```json
+"devDependencies": {
+  "@tailwindcss/typography": "^0.5.15",
+  "@tailwindcss/vite": "^4.1.3",
+  "@types/connect-pg-simple": "^7.0.3",
+  "@types/express": "4.17.21",
+  "@types/express-session": "^1.18.0",
+  "@types/node": "20.16.11",
+  "@types/passport": "^1.0.16",
+  "@types/passport-local": "^1.0.38",
+  "@types/react": "^18.3.11",
+  "@types/react-dom": "^18.3.1",
+  "@types/ws": "^8.5.13",
+  "@vitejs/plugin-react": "^4.7.0",
+  "autoprefixer": "^10.4.20",
+  "esbuild": "^0.25.0",
+  "postcss": "^8.4.47",
+  "tailwindcss": "^3.4.17",
+  "tsx": "^4.20.5",
+  "typescript": "5.6.3",
+  "vite": "^5.4.20"
+}
+```
+
+### Step 4: Clean Install Dependencies
+
+After making the above changes, delete `node_modules` and `package-lock.json`, then reinstall:
+
+```bash
+# On Windows (Command Prompt)
+rmdir /s /q node_modules
+del package-lock.json
+npm install
+
+# On Windows (PowerShell)
+Remove-Item -Recurse -Force node_modules
+Remove-Item package-lock.json
+npm install
+
+# On macOS/Linux
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Step 5: Verify the Changes
+
+Run the application to ensure everything works:
+
+```bash
+npm run dev
+```
+
+The application should start without any Replit-related errors.
+
+---
+
 ## Installation Steps
 
 ### Step 1: Clone the Repository
@@ -190,6 +326,7 @@ You should see the login page of the CTI Aggregator application.
 
 ```
 project-root/
+├── attached_assets/     # Static assets (images, etc.)
 ├── client/              # Frontend React application
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
@@ -198,14 +335,27 @@ project-root/
 │   │   └── lib/         # Utility functions
 │   └── index.html
 ├── server/              # Backend Express server
-│   ├── db/              # Database configuration
-│   ├── middleware/      # Express middleware
+│   ├── db/              # Database configuration (MongoDB)
+│   ├── middleware/      # Express middleware (auth, etc.)
 │   ├── routes.ts        # API routes
+│   ├── openaiService.ts # OpenAI integration
+│   ├── threatIntelFetcher.ts # Threat intelligence fetching
 │   └── index.ts         # Server entry point
 ├── shared/              # Shared types and schemas
 ├── .env                 # Environment variables (create this)
+├── .gitignore           # Git ignore rules
+├── components.json      # Shadcn UI configuration
 ├── package.json         # Project dependencies
+├── postcss.config.js    # PostCSS configuration
+├── tailwind.config.ts   # Tailwind CSS configuration
+├── tsconfig.json        # TypeScript configuration
+├── vite.config.ts       # Vite bundler configuration
 └── README.md            # This file
+
+# Files to remove for local development (Replit-specific):
+# - .replit
+# - replit.md
+# - design_guidelines.md (optional)
 ```
 
 ## Troubleshooting
