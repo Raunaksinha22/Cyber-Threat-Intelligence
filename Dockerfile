@@ -1,47 +1,38 @@
-# CTI Aggregator - Production Docker Build (Optimized)
+# CTI Aggregator - Production Docker Build
 # Multi-stage build for optimized production image
 
 # ============================================
-# Stage 1: Dependencies Stage (Cached)
-# ============================================
-FROM node:20-alpine AS dependencies
-
-WORKDIR /app
-
-# Install build dependencies (this layer is cached)
-RUN apk add --no-cache python3 make g++
-
-# Copy only package files
-COPY package*.json ./
-
-# Install dependencies (cached unless package.json changes)
-RUN npm ci
-
-# ============================================
-# Stage 2: Build Stage
+# Stage 1: Build Stage
 # ============================================
 FROM node:20-alpine AS builder
 
+# Set working directory
 WORKDIR /app
 
-# Copy node_modules from dependencies stage
-COPY --from=dependencies /app/node_modules ./node_modules
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Copy package files and source
+# Copy package files
 COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy source code
 COPY . .
 
-# Build the application
+# Build the application (this bundles everything including vite)
 RUN npm run build
 
 # ============================================
-# Stage 3: Production Stage
+# Stage 2: Production Stage
 # ============================================
 FROM node:20-alpine AS production
 
+# Set working directory
 WORKDIR /app
 
-# Install only wget for healthcheck (much faster than build tools)
+# Install wget for healthcheck
 RUN apk add --no-cache wget
 
 # Create non-root user for security
@@ -51,12 +42,16 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --only=production && \
+# Install ALL dependencies (we need vite at runtime)
+# This is necessary because your build might use vite for serving
+RUN npm ci && \
     npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+
+# Copy node_modules from builder (includes vite)
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Create attached_assets directory
 RUN mkdir -p ./attached_assets && \

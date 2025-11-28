@@ -1,8 +1,6 @@
 # CTI Aggregator - Development Docker Compose Configuration
 # Run with: docker compose -f docker-compose.dev.yaml up -d
 
-version: '3.8'
-
 services:
   # ===========================================
   # MongoDB Database
