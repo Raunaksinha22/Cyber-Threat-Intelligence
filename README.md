@@ -191,6 +191,27 @@ The application should start without any Replit-related errors.
 
 ---
 
+### Quick Fix: Windows Named Pipe Error (steps you can run now)
+
+If you get `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified` when running `docker-compose up -d`, try the following in PowerShell:
+
+```powershell
+# 1) Check if Docker is reachable
+docker info
+
+# 2) Start Docker Desktop (if it isn't running)
+Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+
+# 3) Optional: Check docker service
+Get-Service -Name com.docker.service
+
+# 4) Recommended: Use modern Compose plugin
+docker compose up -d
+```
+
+If `docker info` returns a response, your daemon is running and `docker compose up -d` should work.
+
+
 ## Installation Steps
 
 ### Step 1: Clone the Repository
@@ -477,24 +498,25 @@ For development with hot-reload support:
 #### Container Management
 
 ```bash
-# Start services
-docker-compose up -d
+# Start services (recommended: the Compose V2 plugin)
+# Recommended: `docker compose` (V2 plugin)
+docker compose up -d
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Restart a specific service
-docker-compose restart app
+docker compose restart app
 
 # View running containers
-docker-compose ps
+docker compose ps
 
 # View container logs
-docker-compose logs -f [service_name]
+docker compose logs -f [service_name]
 
 # Execute command in running container
-docker-compose exec app sh
-docker-compose exec mongodb mongosh
+docker compose exec app sh
+docker compose exec mongodb mongosh
 ```
 
 #### Image Management
@@ -564,6 +586,28 @@ Environment variables are passed from your `.env` file to containers via docker-
 #### "Cannot connect to Docker daemon"
 - Ensure Docker Desktop is running
 - On Linux, check if the Docker service is started: `sudo systemctl start docker`
+
+> ⚠️ Windows users: If you see a named pipe error like `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`, it almost always means Docker Desktop is not running or the Linux engine is not reachable.
+
+Quick Windows troubleshooting steps:
+
+1. Open the Docker Desktop app from the Start Menu and wait until it reports "Docker is running".
+2. If Docker Desktop is running but still failing, restart the app or reboot the machine.
+3. Check the Docker service status in PowerShell:
+   ```powershell
+   # Check Docker service
+   Get-Service -Name com.docker.service
+
+   # Or try to start Docker Desktop directly if it is not running
+   Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+   ```
+4. Verify Docker daemon is reachable:
+   ```powershell
+   docker info
+   docker compose version
+   ```
+5. If you still see the error after the previous steps, ensure the WSL2 backend is enabled in Docker Desktop settings (Settings > General > Use the WSL 2 based engine).
+6. If you don't have Docker Desktop installed, install it from https://www.docker.com/products/docker-desktop/ and enable WSL2 integration for best results.
 
 #### "Port 5000 already in use"
 - Stop any existing services using port 5000

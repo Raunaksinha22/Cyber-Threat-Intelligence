@@ -1,20 +1,23 @@
-# Dependencies
+# Node modules
 node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+npm-debug.log
+yarn-error.log
 
 # Build output
 dist
+build
+.next
 
-# Environment files (will be provided via docker-compose)
+# Development files
+.git
+.gitignore
 .env
 .env.local
 .env.*.local
 
-# IDE and editor files
-.idea
+# IDE files
 .vscode
+.idea
 *.swp
 *.swo
 *~
@@ -23,23 +26,24 @@ dist
 .DS_Store
 Thumbs.db
 
-# Git
-.git
-.gitignore
+# Documentation
+README.md
+*.md
+docs
 
-# Replit specific files
-.replit
-replit.md
-.cache
-.upm
+# Docker files
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
 
 # Testing
 coverage
-*.test.ts
-*.spec.ts
-
-# Documentation (optional - can be included if needed)
-# README.md
+.nyc_output
+test
+tests
+*.test.js
+*.spec.js
 
 # Logs
 logs
